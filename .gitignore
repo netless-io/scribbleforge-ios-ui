@@ -1,0 +1,21 @@
+.DS_Store
+
+# Xcode
+DerivedData/
+*.xcworkspace
+!*.xcworkspace/contents.xcworkspacedata
+*.xcuserstate
+xcuserdata/
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# SwiftPM
+.build/
+
+# Carthage
+Carthage/Build/
+
+# Local config
+Demo/ScribbleForgeSampleUI/RoomConfig.plist
