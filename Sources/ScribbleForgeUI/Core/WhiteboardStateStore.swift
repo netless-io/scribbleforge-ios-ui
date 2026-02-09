@@ -28,6 +28,12 @@ public final class WhiteboardStateStore: NSObject {
         }
     }
 
+    public func setBackgroundColor(_ color: UIColor) {
+        updateState { state in
+            state.backgroundColor = color
+        }
+    }
+
     private func syncFromWhiteboard(_ whiteboard: Whiteboard) {
         let strokeColor = whiteboard.strokeColor().flatMap { UIColor(sfHex: $0) }
         let fillColor = whiteboard.fillColor().flatMap { UIColor(sfHex: $0) }

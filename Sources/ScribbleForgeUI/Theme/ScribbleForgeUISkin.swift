@@ -246,7 +246,7 @@ public struct ScribbleForgeUISkin {
             case .undo:
                 return ScribbleForgeUIResources.image(named: "fcr_mobile_whiteboard_revoke")?.withRenderingMode(.alwaysTemplate)
             case .redo:
-                return ScribbleForgeUIResources.image(named: "fcr_mobile_whiteboardedit")?.withRenderingMode(.alwaysTemplate)
+                return ScribbleForgeUIResources.image(named: "fcr_mobile_whiteboard_redo")?.withRenderingMode(.alwaysTemplate)
             case .colorSettings:
                 return ScribbleForgeUIResources.image(named: "fcr_whiteboard_colorshape")?.withRenderingMode(.alwaysTemplate)
             case .shapePicker:

@@ -482,7 +482,7 @@ public final class WhiteboardToolbarView: UIView {
         case .undo:
             return "fcr_mobile_whiteboard_revoke"
         case .redo:
-            return "fcr_mobile_whiteboardedit"
+            return "fcr_mobile_whiteboard_redo"
         case .colorSettings:
             return "fcr_whiteboard_colorshape"
         case .shapePicker:

@@ -1,6 +1,11 @@
 import UIKit
 
 final class WhiteboardBackgroundSettingsView: UIView {
+    private static let defaultColorOptions: [UIColor] = [
+        .white,
+        UIColor.black.withAlphaComponent(0.8),
+        UIColor(sfHex: "#5A7D75") ?? UIColor(red: 90.0 / 255.0, green: 125.0 / 255.0, blue: 117.0 / 255.0, alpha: 1.0)
+    ]
     private static let itemWidth: CGFloat = 108
     private static let itemHeight: CGFloat = 62
     private static let selectionBorderWidth: CGFloat = 2
@@ -13,11 +18,7 @@ final class WhiteboardBackgroundSettingsView: UIView {
 
     var onColorSelected: ((UIColor) -> Void)?
 
-    private let colorOptions: [WhiteboardColorOption] = [
-        .init(id: "whiteboard", color: .white),
-        .init(id: "black", color: UIColor.black.withAlphaComponent(0.8)),
-        .init(id: "green", color: UIColor(sfHex: "#5A7D75")!)
-    ]
+    private let colorOptions: [WhiteboardColorOption]
     private let colorStack = UIStackView()
     private var colorButtons: [UIButton] = []
     private var theme: ScribbleForgeUISkin
@@ -41,20 +42,26 @@ final class WhiteboardBackgroundSettingsView: UIView {
         return CGSize(width: width, height: height)
     }
 
-    init(theme: ScribbleForgeUISkin = .default) {
+    init(
+        theme: ScribbleForgeUISkin = .default,
+        colorOptions: [UIColor] = []
+    ) {
         self.theme = theme
+        self.colorOptions = Self.buildColorOptions(from: colorOptions)
         super.init(frame: .zero)
         setupView()
     }
 
     override init(frame: CGRect) {
         self.theme = .default
+        self.colorOptions = Self.buildColorOptions(from: Self.defaultColorOptions)
         super.init(frame: frame)
         setupView()
     }
 
     required init?(coder: NSCoder) {
         self.theme = .default
+        self.colorOptions = Self.buildColorOptions(from: Self.defaultColorOptions)
         super.init(coder: coder)
         setupView()
     }
@@ -71,9 +78,9 @@ final class WhiteboardBackgroundSettingsView: UIView {
                 return targetColor.isEqual(option.color)
             }
             return false
-        } ?? 0
+        }
         for (index, button) in colorButtons.enumerated() {
-            updateColorButton(button, selected: index == selectedIndex)
+            updateColorButton(button, selected: selectedIndex == index)
         }
         setNeedsLayout()
     }
@@ -210,5 +217,13 @@ final class WhiteboardBackgroundSettingsView: UIView {
     private func currentSelectedColor() -> UIColor? {
         guard let index = colorButtons.firstIndex(where: { $0.isSelected }) else { return nil }
         return colorOptions[index].color
+    }
+
+    private static func buildColorOptions(from colors: [UIColor]) -> [WhiteboardColorOption] {
+        let normalizedColors = colors.isEmpty ? defaultColorOptions : colors
+        return normalizedColors.enumerated().map { index, color in
+            let id = color.isEqual(UIColor.white) ? "whiteboard" : "color_\(index)"
+            return WhiteboardColorOption(id: id, color: color)
+        }
     }
 }

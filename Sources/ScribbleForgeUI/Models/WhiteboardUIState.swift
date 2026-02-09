@@ -5,6 +5,7 @@ public struct WhiteboardUIState: Equatable {
     public var currentTool: WhiteboardToolType?
     public var strokeColor: UIColor?
     public var fillColor: UIColor?
+    public var backgroundColor: UIColor
     public var strokeWidth: Float
     public var fontSize: Float?
     public var dashArray: [Float]?
@@ -19,6 +20,7 @@ public struct WhiteboardUIState: Equatable {
         currentTool: WhiteboardToolType? = nil,
         strokeColor: UIColor? = nil,
         fillColor: UIColor? = nil,
+        backgroundColor: UIColor = .white,
         strokeWidth: Float = 0,
         fontSize: Float? = nil,
         dashArray: [Float]? = nil,
@@ -32,6 +34,7 @@ public struct WhiteboardUIState: Equatable {
         self.currentTool = currentTool
         self.strokeColor = strokeColor
         self.fillColor = fillColor
+        self.backgroundColor = backgroundColor
         self.strokeWidth = strokeWidth
         self.fontSize = fontSize
         self.dashArray = dashArray

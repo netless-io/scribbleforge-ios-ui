@@ -31,8 +31,14 @@ public final class WhiteboardContainerViewController: UIViewController {
 
     public init(config: WhiteboardUIConfig = .init()) {
         self.config = config
-        self.stateStore = WhiteboardStateStore()
+        self.stateStore = WhiteboardStateStore(
+            initialState: WhiteboardUIState(backgroundColor: config.initialBackgroundColor)
+        )
         super.init(nibName: nil, bundle: nil)
+    }
+
+    deinit {
+        stop()
     }
 
     @available(*, unavailable)
@@ -58,6 +64,7 @@ public final class WhiteboardContainerViewController: UIViewController {
     }
 
     public func start(with room: Room, autoJoin: Bool = true) {
+        stop()
         self.room = room
         room.addDelegate(self)
         isLoadingWhiteboard = true
@@ -70,11 +77,12 @@ public final class WhiteboardContainerViewController: UIViewController {
     }
 
     public func stop() {
-        whiteboard?.delegate = nil
-        whiteboard = nil
+        room?.removeDelegate(self)
+        room = nil
+        detachWhiteboard()
+        hideAllSettings()
         isJoining = false
         hasJoined = false
-        isWhiteboardReady = false
         isLoadingWhiteboard = false
         updateLoadingState()
         updateToolbarVisibility()
@@ -250,10 +258,14 @@ public final class WhiteboardContainerViewController: UIViewController {
 
     private func showBackgroundSettings() {
         if backgroundSettingsView == nil {
-            let view = WhiteboardBackgroundSettingsView(theme: config.theme)
+            let view = WhiteboardBackgroundSettingsView(
+                theme: config.theme,
+                colorOptions: config.backgroundColorOptions
+            )
             view.translatesAutoresizingMaskIntoConstraints = false
             view.onColorSelected = { [weak self] color in
                 self?.whiteboard?.setBackgroundColor(color)
+                self?.stateStore.setBackgroundColor(color)
                 self?.hideBackgroundSettings()
             }
             backgroundSettingsView = view
@@ -266,7 +278,7 @@ public final class WhiteboardContainerViewController: UIViewController {
 
         applyBackgroundSettingsConstraints(for: settingsView)
 
-        settingsView.apply(selectedColor: whiteboard?.applicationView?.backgroundColor)
+        settingsView.apply(selectedColor: stateStore.state.backgroundColor)
         view.bringSubviewToFront(settingsView)
         view.bringSubviewToFront(toolbarView)
         installDismissGestureIfNeeded()
@@ -561,9 +573,20 @@ public final class WhiteboardContainerViewController: UIViewController {
         }
     }
 
+    private func detachWhiteboard() {
+        whiteboard?.delegate = nil
+        whiteboard?.applicationView?.removeFromSuperview()
+        whiteboard = nil
+        NSLayoutConstraint.deactivate(whiteboardConstraints)
+        whiteboardConstraints = []
+        isWhiteboardReady = false
+    }
+
     private func attachWhiteboard(_ whiteboard: Whiteboard) {
+        detachWhiteboard()
         self.whiteboard = whiteboard
         stateStore.bind(whiteboard: whiteboard, roomUserId: room?.userId)
+        whiteboard.setBackgroundColor(stateStore.state.backgroundColor)
         isWhiteboardReady = true
         isLoadingWhiteboard = false
         updateLoadingState()
@@ -605,9 +628,7 @@ extension WhiteboardContainerViewController: RoomDelegate {
 
     public func roomApplicationDidTerminal(_: Room, application app: any Application) {
         guard app.appId == config.whiteboardAppId else { return }
-        whiteboard?.applicationView?.removeFromSuperview()
-        whiteboard = nil
-        isWhiteboardReady = false
+        detachWhiteboard()
         isLoadingWhiteboard = false
         updateLoadingState()
         updateToolbarVisibility()
