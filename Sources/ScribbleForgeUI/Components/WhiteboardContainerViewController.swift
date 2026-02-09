@@ -9,6 +9,8 @@ public final class WhiteboardContainerViewController: UIViewController {
     private let stageContainer = UIView()
     private let loadingIndicator = UIActivityIndicatorView(style: .large)
     private var whiteboardConstraints: [NSLayoutConstraint] = []
+    private var toolbarConstraints: [NSLayoutConstraint] = []
+    private var toolbarBackgroundConstraints: [NSLayoutConstraint] = []
     private var penSettingsView: WhiteboardPenSettingsView?
     private var penSettingsConstraints: [NSLayoutConstraint] = []
     private var backgroundSettingsView: WhiteboardBackgroundSettingsView?
@@ -20,6 +22,7 @@ public final class WhiteboardContainerViewController: UIViewController {
     private var lastShapeTool: WhiteboardToolType?
     private var isWhiteboardReady = false
     private var isLoadingWhiteboard = false
+    private var isVerticalToolbarLayout = false
 
     private weak var room: Room?
     private weak var whiteboard: Whiteboard?
@@ -42,6 +45,16 @@ public final class WhiteboardContainerViewController: UIViewController {
         setupLayout()
         setupToolbar()
         bindState()
+    }
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateToolbarLayoutIfNeeded()
+    }
+
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        updateToolbarLayoutIfNeeded()
     }
 
     public func start(with room: Room, autoJoin: Bool = true) {
@@ -132,19 +145,17 @@ public final class WhiteboardContainerViewController: UIViewController {
         toolbarView.onSave = { [weak self] in
             self?.saveSnapshot()
         }
+        toolbarView.onCollapsedStateChanged = { [weak self] collapsed in
+            guard let self else { return }
+            if collapsed {
+                self.hideAllSettings()
+            }
+            self.applyToolbarConstraints()
+            self.updateVisibleSettingsConstraints()
+        }
 
         view.addSubview(toolbarView)
-        NSLayoutConstraint.activate([
-            toolbarBackgroundView.leadingAnchor.constraint(equalTo: toolbarView.leadingAnchor),
-            toolbarBackgroundView.trailingAnchor.constraint(equalTo: toolbarView.trailingAnchor),
-            toolbarBackgroundView.topAnchor.constraint(equalTo: toolbarView.bottomAnchor),
-            toolbarBackgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            toolbarView.centerXAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerXAnchor),
-            toolbarView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            toolbarView.widthAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.widthAnchor),
-            toolbarView.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor),
-            toolbarView.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor)
-        ])
+        updateToolbarLayoutIfNeeded(force: true)
     }
 
     private func bindState() {
@@ -189,14 +200,7 @@ public final class WhiteboardContainerViewController: UIViewController {
             view.addSubview(settingsView)
         }
 
-        NSLayoutConstraint.deactivate(penSettingsConstraints)
-        penSettingsConstraints = [
-            settingsView.bottomAnchor.constraint(equalTo: toolbarView.topAnchor, constant: -12),
-            settingsView.centerXAnchor.constraint(equalTo: toolbarView.centerXAnchor),
-            settingsView.widthAnchor.constraint(equalToConstant: settingsView.preferredWidth),
-            settingsView.heightAnchor.constraint(equalToConstant: 56)
-        ]
-        NSLayoutConstraint.activate(penSettingsConstraints)
+        applyPenSettingsConstraints(for: settingsView)
 
         let state = stateStore.state
         settingsView.apply(selectedColor: state.strokeColor, selectedWidth: state.strokeWidth > 0 ? state.strokeWidth : nil)
@@ -210,6 +214,28 @@ public final class WhiteboardContainerViewController: UIViewController {
         NSLayoutConstraint.deactivate(penSettingsConstraints)
         penSettingsConstraints = []
         updateDismissGestureIfNeeded()
+    }
+
+    private func applyPenSettingsConstraints(for settingsView: WhiteboardPenSettingsView) {
+        NSLayoutConstraint.deactivate(penSettingsConstraints)
+        settingsView.setLayoutAxis(isVerticalToolbarLayout ? .vertical : .horizontal)
+        let preferredSize = settingsView.preferredSize
+        if isVerticalToolbarLayout {
+            penSettingsConstraints = [
+                settingsView.centerYAnchor.constraint(equalTo: toolbarView.centerYAnchor),
+                settingsView.trailingAnchor.constraint(equalTo: toolbarView.leadingAnchor, constant: -12),
+                settingsView.widthAnchor.constraint(equalToConstant: preferredSize.width),
+                settingsView.heightAnchor.constraint(equalToConstant: preferredSize.height)
+            ]
+        } else {
+            penSettingsConstraints = [
+                settingsView.bottomAnchor.constraint(equalTo: toolbarView.topAnchor, constant: -12),
+                settingsView.centerXAnchor.constraint(equalTo: toolbarView.centerXAnchor),
+                settingsView.widthAnchor.constraint(equalToConstant: preferredSize.width),
+                settingsView.heightAnchor.constraint(equalToConstant: preferredSize.height)
+            ]
+        }
+        NSLayoutConstraint.activate(penSettingsConstraints)
     }
 
     private func toggleBackgroundSettings() {
@@ -238,14 +264,7 @@ public final class WhiteboardContainerViewController: UIViewController {
             view.addSubview(settingsView)
         }
 
-        NSLayoutConstraint.deactivate(backgroundSettingsConstraints)
-        backgroundSettingsConstraints = [
-            settingsView.bottomAnchor.constraint(equalTo: toolbarView.topAnchor, constant: -12),
-            settingsView.centerXAnchor.constraint(equalTo: toolbarView.centerXAnchor),
-            settingsView.widthAnchor.constraint(equalToConstant: settingsView.preferredWidth),
-            settingsView.heightAnchor.constraint(equalToConstant: 82)
-        ]
-        NSLayoutConstraint.activate(backgroundSettingsConstraints)
+        applyBackgroundSettingsConstraints(for: settingsView)
 
         settingsView.apply(selectedColor: whiteboard?.applicationView?.backgroundColor)
         view.bringSubviewToFront(settingsView)
@@ -258,6 +277,28 @@ public final class WhiteboardContainerViewController: UIViewController {
         NSLayoutConstraint.deactivate(backgroundSettingsConstraints)
         backgroundSettingsConstraints = []
         updateDismissGestureIfNeeded()
+    }
+
+    private func applyBackgroundSettingsConstraints(for settingsView: WhiteboardBackgroundSettingsView) {
+        NSLayoutConstraint.deactivate(backgroundSettingsConstraints)
+        settingsView.setLayoutAxis(isVerticalToolbarLayout ? .vertical : .horizontal)
+        let preferredSize = settingsView.preferredSize
+        if isVerticalToolbarLayout {
+            backgroundSettingsConstraints = [
+                settingsView.centerYAnchor.constraint(equalTo: toolbarView.centerYAnchor),
+                settingsView.trailingAnchor.constraint(equalTo: toolbarView.leadingAnchor, constant: -12),
+                settingsView.widthAnchor.constraint(equalToConstant: preferredSize.width),
+                settingsView.heightAnchor.constraint(equalToConstant: preferredSize.height)
+            ]
+        } else {
+            backgroundSettingsConstraints = [
+                settingsView.bottomAnchor.constraint(equalTo: toolbarView.topAnchor, constant: -12),
+                settingsView.centerXAnchor.constraint(equalTo: toolbarView.centerXAnchor),
+                settingsView.widthAnchor.constraint(equalToConstant: preferredSize.width),
+                settingsView.heightAnchor.constraint(equalToConstant: preferredSize.height)
+            ]
+        }
+        NSLayoutConstraint.activate(backgroundSettingsConstraints)
     }
 
     private func selectCurrentShapeAndShowSettings() {
@@ -289,14 +330,7 @@ public final class WhiteboardContainerViewController: UIViewController {
             view.addSubview(settingsView)
         }
 
-        NSLayoutConstraint.deactivate(shapeSettingsConstraints)
-        shapeSettingsConstraints = [
-            settingsView.bottomAnchor.constraint(equalTo: toolbarView.topAnchor, constant: -12),
-            settingsView.centerXAnchor.constraint(equalTo: toolbarView.centerXAnchor),
-            settingsView.widthAnchor.constraint(equalToConstant: settingsView.preferredWidth),
-            settingsView.heightAnchor.constraint(equalToConstant: 56)
-        ]
-        NSLayoutConstraint.activate(shapeSettingsConstraints)
+        applyShapeSettingsConstraints(for: settingsView)
 
         settingsView.apply(selectedTool: stateStore.state.currentTool)
         view.bringSubviewToFront(settingsView)
@@ -311,6 +345,28 @@ public final class WhiteboardContainerViewController: UIViewController {
         updateDismissGestureIfNeeded()
     }
 
+    private func applyShapeSettingsConstraints(for settingsView: WhiteboardShapeSettingsView) {
+        NSLayoutConstraint.deactivate(shapeSettingsConstraints)
+        settingsView.setLayoutAxis(isVerticalToolbarLayout ? .vertical : .horizontal)
+        let preferredSize = settingsView.preferredSize
+        if isVerticalToolbarLayout {
+            shapeSettingsConstraints = [
+                settingsView.centerYAnchor.constraint(equalTo: toolbarView.centerYAnchor),
+                settingsView.trailingAnchor.constraint(equalTo: toolbarView.leadingAnchor, constant: -12),
+                settingsView.widthAnchor.constraint(equalToConstant: preferredSize.width),
+                settingsView.heightAnchor.constraint(equalToConstant: preferredSize.height)
+            ]
+        } else {
+            shapeSettingsConstraints = [
+                settingsView.bottomAnchor.constraint(equalTo: toolbarView.topAnchor, constant: -12),
+                settingsView.centerXAnchor.constraint(equalTo: toolbarView.centerXAnchor),
+                settingsView.widthAnchor.constraint(equalToConstant: preferredSize.width),
+                settingsView.heightAnchor.constraint(equalToConstant: preferredSize.height)
+            ]
+        }
+        NSLayoutConstraint.activate(shapeSettingsConstraints)
+    }
+
     private func hideAllSettings() {
         hidePenSettings()
         hideBackgroundSettings()
@@ -321,6 +377,85 @@ public final class WhiteboardContainerViewController: UIViewController {
         let shouldShow = config.showToolbar && isWhiteboardReady && stateStore.state.canDraw
         toolbarView.isHidden = !shouldShow
         toolbarBackgroundView.isHidden = !shouldShow
+    }
+
+    private func shouldUseVerticalToolbarLayout() -> Bool {
+        return traitCollection.userInterfaceIdiom == .phone && view.bounds.width > view.bounds.height
+    }
+
+    private func updateToolbarLayoutIfNeeded(force: Bool = false) {
+        let shouldVertical = shouldUseVerticalToolbarLayout()
+        guard force || shouldVertical != isVerticalToolbarLayout else { return }
+        isVerticalToolbarLayout = shouldVertical
+        toolbarView.setLayoutAxis(shouldVertical ? .vertical : .horizontal)
+        applyToolbarConstraints()
+        updateVisibleSettingsConstraints()
+    }
+
+    private func applyToolbarConstraints() {
+        NSLayoutConstraint.deactivate(toolbarConstraints)
+        NSLayoutConstraint.deactivate(toolbarBackgroundConstraints)
+        if isVerticalToolbarLayout && toolbarView.isCollapsedState {
+            toolbarBackgroundView.layer.cornerRadius = 16
+            toolbarBackgroundView.layer.cornerCurve = .continuous
+            toolbarBackgroundView.layer.masksToBounds = true
+        } else {
+            toolbarBackgroundView.layer.cornerRadius = 0
+            toolbarBackgroundView.layer.masksToBounds = false
+        }
+        if isVerticalToolbarLayout {
+            if toolbarView.isCollapsedState {
+                toolbarConstraints = [
+                    toolbarView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+                    toolbarView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+                    toolbarView.heightAnchor.constraint(equalToConstant: 70),
+                    toolbarView.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor),
+                    toolbarView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor)
+                ]
+            } else {
+                toolbarConstraints = [
+                    toolbarView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+                    toolbarView.topAnchor.constraint(equalTo: view.topAnchor),
+                    toolbarView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                    toolbarView.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor)
+                ]
+            }
+            toolbarBackgroundConstraints = [
+                toolbarBackgroundView.leadingAnchor.constraint(equalTo: toolbarView.leadingAnchor),
+                toolbarBackgroundView.trailingAnchor.constraint(equalTo: toolbarView.trailingAnchor),
+                toolbarBackgroundView.topAnchor.constraint(equalTo: toolbarView.topAnchor),
+                toolbarBackgroundView.bottomAnchor.constraint(equalTo: toolbarView.bottomAnchor)
+            ]
+        } else {
+            toolbarConstraints = [
+                toolbarView.centerXAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerXAnchor),
+                toolbarView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+                toolbarView.widthAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.widthAnchor),
+                toolbarView.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor),
+                toolbarView.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor)
+            ]
+            toolbarBackgroundConstraints = [
+                toolbarBackgroundView.leadingAnchor.constraint(equalTo: toolbarView.leadingAnchor),
+                toolbarBackgroundView.trailingAnchor.constraint(equalTo: toolbarView.trailingAnchor),
+                toolbarBackgroundView.topAnchor.constraint(equalTo: toolbarView.bottomAnchor),
+                toolbarBackgroundView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            ]
+        }
+        NSLayoutConstraint.activate(toolbarConstraints)
+        NSLayoutConstraint.activate(toolbarBackgroundConstraints)
+        view.layoutIfNeeded()
+    }
+
+    private func updateVisibleSettingsConstraints() {
+        if let settingsView = penSettingsView, settingsView.superview != nil {
+            applyPenSettingsConstraints(for: settingsView)
+        }
+        if let settingsView = backgroundSettingsView, settingsView.superview != nil {
+            applyBackgroundSettingsConstraints(for: settingsView)
+        }
+        if let settingsView = shapeSettingsView, settingsView.superview != nil {
+            applyShapeSettingsConstraints(for: settingsView)
+        }
     }
 
     private func updateLoadingState() {

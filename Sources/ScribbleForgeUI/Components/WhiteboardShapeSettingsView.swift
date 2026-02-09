@@ -27,11 +27,22 @@ final class WhiteboardShapeSettingsView: UIView {
     private let shapeStack = UIStackView()
     private var shapeButtons: [UIButton] = []
     private var theme: ScribbleForgeUISkin
+    private var layoutAxis: NSLayoutConstraint.Axis = .horizontal
 
-    var preferredWidth: CGFloat {
-        let contentWidth = CGFloat(shapeOptions.count) * Self.itemWidth
+    var preferredSize: CGSize {
+        let contentLength = CGFloat(shapeOptions.count) * Self.itemWidth
             + CGFloat(max(shapeOptions.count - 1, 0)) * Self.itemSpacing
-        return contentWidth + 2 * (Self.containerPadding + Self.stackPadding)
+        let insets = 2 * (Self.containerPadding + Self.stackPadding)
+        if layoutAxis == .vertical {
+            let width = Self.itemWidth + insets
+            let height = CGFloat(shapeOptions.count) * Self.itemHeight
+                + CGFloat(max(shapeOptions.count - 1, 0)) * Self.itemSpacing
+                + insets
+            return CGSize(width: width, height: height)
+        }
+        let width = contentLength + insets
+        let height = Self.itemHeight + insets
+        return CGSize(width: width, height: height)
     }
 
     init(theme: ScribbleForgeUISkin = .default) {
@@ -60,6 +71,14 @@ final class WhiteboardShapeSettingsView: UIView {
         }
     }
 
+    func setLayoutAxis(_ axis: NSLayoutConstraint.Axis) {
+        guard layoutAxis != axis else { return }
+        layoutAxis = axis
+        shapeStack.axis = axis
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
+    }
+
     private func setupView() {
         layer.cornerRadius = 12
         layer.borderWidth = 1
@@ -86,11 +105,11 @@ final class WhiteboardShapeSettingsView: UIView {
             rowContainer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.containerPadding),
             rowContainer.topAnchor.constraint(equalTo: topAnchor, constant: Self.containerPadding),
             rowContainer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Self.containerPadding),
-            rowContainer.heightAnchor.constraint(equalToConstant: 50),
 
             shapeStack.leadingAnchor.constraint(equalTo: rowContainer.leadingAnchor, constant: Self.stackPadding),
             shapeStack.trailingAnchor.constraint(equalTo: rowContainer.trailingAnchor, constant: -Self.stackPadding),
-            shapeStack.centerYAnchor.constraint(equalTo: rowContainer.centerYAnchor)
+            shapeStack.topAnchor.constraint(equalTo: rowContainer.topAnchor, constant: Self.stackPadding),
+            shapeStack.bottomAnchor.constraint(equalTo: rowContainer.bottomAnchor, constant: -Self.stackPadding)
         ])
 
         buildButtons()

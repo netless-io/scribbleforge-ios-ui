@@ -11,6 +11,8 @@ public final class WhiteboardToolbarView: UIView {
     public var onShapePicker: (() -> Void)?
     public var onSave: (() -> Void)?
     public var onBackgroundColor: (() -> Void)?
+    public var onCollapsedStateChanged: ((Bool) -> Void)?
+    public var isCollapsedState: Bool { isCollapsed }
 
     private enum ToolbarItem: Hashable {
         case tool(WhiteboardToolType)
@@ -59,9 +61,17 @@ public final class WhiteboardToolbarView: UIView {
 
     private let closeButton = UIButton(type: .system)
     private let expandButton = UIButton(type: .system)
-    private let closeSeparator = UIView()
     private var isCollapsed = false
     private var isFullWidthStyle: Bool?
+    private var layoutAxis: NSLayoutConstraint.Axis = .horizontal
+    private var itemScrollSizeConstraint: NSLayoutConstraint?
+    private var itemStackCrossConstraint: NSLayoutConstraint?
+    private var toolbarThicknessConstraint: NSLayoutConstraint?
+    private var containerLeadingConstraint: NSLayoutConstraint?
+    private var containerTrailingConstraint: NSLayoutConstraint?
+    private var containerTopConstraint: NSLayoutConstraint?
+    private var containerBottomConstraint: NSLayoutConstraint?
+    private static let horizontalContentInset: CGFloat = 14
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -80,6 +90,55 @@ public final class WhiteboardToolbarView: UIView {
         self.theme = theme
         rebuildItems()
         applyTheme()
+    }
+
+    public func setLayoutAxis(_ axis: NSLayoutConstraint.Axis) {
+        guard layoutAxis != axis else { return }
+        layoutAxis = axis
+        containerStack.axis = axis
+        itemStack.axis = axis
+        itemScrollView.alwaysBounceHorizontal = axis == .horizontal
+        itemScrollView.alwaysBounceVertical = axis == .vertical
+        itemScrollView.showsHorizontalScrollIndicator = false
+        itemScrollView.showsVerticalScrollIndicator = false
+        if axis == .horizontal {
+            itemScrollView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            itemScrollView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        } else {
+            itemScrollView.setContentHuggingPriority(.defaultLow, for: .vertical)
+            itemScrollView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        }
+
+        itemScrollSizeConstraint?.isActive = false
+        if axis == .horizontal {
+            itemScrollSizeConstraint = itemScrollView.heightAnchor.constraint(equalToConstant: 42)
+            containerTopConstraint?.constant = 4
+            containerBottomConstraint?.constant = -4
+        } else {
+            itemScrollSizeConstraint = itemScrollView.widthAnchor.constraint(equalToConstant: 42)
+            containerTopConstraint?.constant = Self.horizontalContentInset
+            containerBottomConstraint?.constant = -Self.horizontalContentInset
+        }
+        itemScrollSizeConstraint?.isActive = true
+
+        toolbarThicknessConstraint?.isActive = false
+        if axis == .horizontal {
+            toolbarThicknessConstraint = heightAnchor.constraint(equalToConstant: 70)
+        } else {
+            toolbarThicknessConstraint = widthAnchor.constraint(equalToConstant: 70)
+        }
+        toolbarThicknessConstraint?.isActive = true
+
+        itemStackCrossConstraint?.isActive = false
+        if axis == .horizontal {
+            itemStackCrossConstraint = itemStack.heightAnchor.constraint(equalTo: itemScrollView.frameLayoutGuide.heightAnchor)
+        } else {
+            itemStackCrossConstraint = itemStack.widthAnchor.constraint(equalTo: itemScrollView.frameLayoutGuide.widthAnchor)
+        }
+        itemStackCrossConstraint?.isActive = true
+
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
     }
 
     public func toolButtonFrame(for tool: WhiteboardToolType, in view: UIView) -> CGRect? {
@@ -137,17 +196,19 @@ public final class WhiteboardToolbarView: UIView {
         layer.masksToBounds = true
 
         containerStack.axis = .horizontal
-        containerStack.spacing = 12
+        containerStack.spacing = 0
         containerStack.alignment = .center
         containerStack.distribution = .fill
         containerStack.translatesAutoresizingMaskIntoConstraints = false
 
         itemScrollView.translatesAutoresizingMaskIntoConstraints = false
         itemScrollView.showsHorizontalScrollIndicator = false
+        itemScrollView.showsVerticalScrollIndicator = false
         itemScrollView.alwaysBounceHorizontal = true
         itemScrollView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         itemScrollView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        itemScrollView.heightAnchor.constraint(equalToConstant: 42).isActive = true
+        itemScrollSizeConstraint = itemScrollView.heightAnchor.constraint(equalToConstant: 42)
+        itemScrollSizeConstraint?.isActive = true
 
         itemStack.axis = .horizontal
         itemStack.spacing = 20
@@ -156,24 +217,29 @@ public final class WhiteboardToolbarView: UIView {
 
         addSubview(containerStack)
         containerStack.addArrangedSubview(itemScrollView)
-        containerStack.addArrangedSubview(closeSeparator)
         containerStack.addArrangedSubview(closeButton)
         containerStack.addArrangedSubview(expandButton)
 
         itemScrollView.addSubview(itemStack)
 
+        itemStackCrossConstraint = itemStack.heightAnchor.constraint(equalTo: itemScrollView.frameLayoutGuide.heightAnchor)
+        containerLeadingConstraint = containerStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.horizontalContentInset)
+        containerTrailingConstraint = containerStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.horizontalContentInset)
+        containerTopConstraint = containerStack.topAnchor.constraint(equalTo: topAnchor, constant: 4)
+        containerBottomConstraint = containerStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
         NSLayoutConstraint.activate([
-            containerStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            containerStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            containerStack.topAnchor.constraint(equalTo: topAnchor, constant: 4),
-            containerStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+            containerLeadingConstraint!,
+            containerTrailingConstraint!,
+            containerTopConstraint!,
+            containerBottomConstraint!,
             itemStack.leadingAnchor.constraint(equalTo: itemScrollView.contentLayoutGuide.leadingAnchor),
             itemStack.trailingAnchor.constraint(equalTo: itemScrollView.contentLayoutGuide.trailingAnchor),
             itemStack.topAnchor.constraint(equalTo: itemScrollView.contentLayoutGuide.topAnchor),
             itemStack.bottomAnchor.constraint(equalTo: itemScrollView.contentLayoutGuide.bottomAnchor),
-            itemStack.heightAnchor.constraint(equalTo: itemScrollView.frameLayoutGuide.heightAnchor)
+            itemStackCrossConstraint!
         ])
-        heightAnchor.constraint(equalToConstant: 70).isActive = true
+        toolbarThicknessConstraint = heightAnchor.constraint(equalToConstant: 70)
+        toolbarThicknessConstraint?.isActive = true
 
         setupActionButtons()
         applyTheme()
@@ -183,11 +249,6 @@ public final class WhiteboardToolbarView: UIView {
         configureResourceButton(closeButton, imageName: "fcr_close2", templated: true, selector: #selector(closeTapped))
         configureResourceButton(expandButton, imageName: "fcr_mobile_whiteboardedit", templated: false, selector: #selector(expandTapped))
         expandButton.isHidden = true
-
-        closeSeparator.translatesAutoresizingMaskIntoConstraints = false
-        closeSeparator.backgroundColor = theme.colors.toolbarBorder
-        closeSeparator.widthAnchor.constraint(equalToConstant: 1).isActive = true
-        closeSeparator.heightAnchor.constraint(equalToConstant: 26).isActive = true
     }
 
     private func rebuildItems() {
@@ -242,7 +303,6 @@ public final class WhiteboardToolbarView: UIView {
         backgroundColor = theme.toolbarBackgroundColor
         layer.borderColor = nil
         layer.borderWidth = 0
-        closeSeparator.backgroundColor = theme.colors.toolbarBorder
         if let provider = theme.toolbarBackgroundViewProvider {
             let view = provider()
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -486,10 +546,11 @@ public final class WhiteboardToolbarView: UIView {
         guard collapsed != isCollapsed else { return }
         isCollapsed = collapsed
         itemScrollView.isHidden = collapsed
-        closeSeparator.isHidden = collapsed
         closeButton.isHidden = collapsed
         expandButton.isHidden = !collapsed
         invalidateIntrinsicContentSize()
+        setNeedsLayout()
+        onCollapsedStateChanged?(collapsed)
     }
 
     @objc private func itemTapped(_ sender: UIButton) {
@@ -558,13 +619,33 @@ public final class WhiteboardToolbarView: UIView {
             return "hand.draw.fill"
         case .pointer:
             return "cursorarrow.rays"
+        @unknown default:
+            return ""
         }
     }
 
     public override var intrinsicContentSize: CGSize {
-        let itemWidth = itemStack.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width
         let visibleSubviews = containerStack.arrangedSubviews.filter { !$0.isHidden }
         let spacing = CGFloat(max(visibleSubviews.count - 1, 0)) * containerStack.spacing
+        if layoutAxis == .vertical {
+            let itemHeight = itemStack.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).height
+            var height: CGFloat = 0
+            var maxWidth: CGFloat = 0
+            for view in visibleSubviews {
+                if view === itemScrollView {
+                    height += itemHeight
+                    maxWidth = max(maxWidth, 42)
+                } else {
+                    let size = view.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+                    height += size.height
+                    maxWidth = max(maxWidth, size.width)
+                }
+            }
+            height += spacing + 8
+            let width = maxWidth + Self.horizontalContentInset * 2
+            return CGSize(width: width, height: height)
+        }
+        let itemWidth = itemStack.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width
         var width: CGFloat = 0
         for view in visibleSubviews {
             if view === itemScrollView {
@@ -573,11 +654,32 @@ public final class WhiteboardToolbarView: UIView {
                 width += view.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width
             }
         }
-        width += spacing + 24
+        width += spacing + Self.horizontalContentInset * 2
         return CGSize(width: width, height: 70)
     }
 
     private func updateCornerStyleIfNeeded() {
+        if isCollapsed {
+            layer.cornerRadius = 16
+            if layoutAxis == .vertical {
+                layer.maskedCorners = [
+                    .layerMinXMinYCorner,
+                    .layerMaxXMinYCorner,
+                    .layerMinXMaxYCorner,
+                    .layerMaxXMaxYCorner
+                ]
+            } else {
+                layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+            }
+            isFullWidthStyle = nil
+            return
+        }
+        if layoutAxis == .vertical {
+            layer.cornerRadius = 0
+            layer.maskedCorners = []
+            isFullWidthStyle = nil
+            return
+        }
         let availableWidth = (superview?.safeAreaLayoutGuide.layoutFrame.width ?? bounds.width) - 24
         let fullWidth = bounds.width >= availableWidth - 0.5
         guard isFullWidthStyle != fullWidth else { return }

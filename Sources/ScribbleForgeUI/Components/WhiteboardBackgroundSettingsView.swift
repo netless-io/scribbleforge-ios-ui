@@ -3,13 +3,13 @@ import UIKit
 final class WhiteboardBackgroundSettingsView: UIView {
     private static let itemWidth: CGFloat = 108
     private static let itemHeight: CGFloat = 62
-    private static let itemImageInset: CGFloat = 4
     private static let selectionBorderWidth: CGFloat = 2
     private static let outerCornerRadius: CGFloat = 12
     private static let innerCornerRadius: CGFloat = 8
     private static let itemSpacing: CGFloat = 10
     private static let containerPadding: CGFloat = 0
     private static let stackPadding: CGFloat = 12
+    private static let horizontalPreferredHeight: CGFloat = 82
 
     var onColorSelected: ((UIColor) -> Void)?
 
@@ -21,11 +21,24 @@ final class WhiteboardBackgroundSettingsView: UIView {
     private let colorStack = UIStackView()
     private var colorButtons: [UIButton] = []
     private var theme: ScribbleForgeUISkin
+    private var layoutAxis: NSLayoutConstraint.Axis = .horizontal
+    private var colorStackTopConstraint: NSLayoutConstraint?
+    private var colorStackBottomConstraint: NSLayoutConstraint?
 
-    var preferredWidth: CGFloat {
+    var preferredSize: CGSize {
+        let edgeInset = 2 * (Self.containerPadding + Self.stackPadding)
+        if layoutAxis == .vertical {
+            let width = Self.itemWidth + edgeInset
+            let height = CGFloat(colorOptions.count) * Self.itemHeight
+                + CGFloat(max(colorOptions.count - 1, 0)) * Self.itemSpacing
+                + edgeInset
+            return CGSize(width: width, height: height)
+        }
         let contentWidth = CGFloat(colorOptions.count) * Self.itemWidth
             + CGFloat(max(colorOptions.count - 1, 0)) * Self.itemSpacing
-        return contentWidth + 2 * (Self.containerPadding + Self.stackPadding)
+        let width = contentWidth + edgeInset
+        let height = Self.horizontalPreferredHeight
+        return CGSize(width: width, height: height)
     }
 
     init(theme: ScribbleForgeUISkin = .default) {
@@ -65,6 +78,17 @@ final class WhiteboardBackgroundSettingsView: UIView {
         setNeedsLayout()
     }
 
+    func setLayoutAxis(_ axis: NSLayoutConstraint.Axis) {
+        guard layoutAxis != axis else { return }
+        layoutAxis = axis
+        colorStack.axis = axis
+        let verticalInset = axis == .vertical ? (Self.containerPadding + Self.stackPadding) : Self.containerPadding
+        colorStackTopConstraint?.constant = verticalInset
+        colorStackBottomConstraint?.constant = -verticalInset
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
+    }
+
     private func setupView() {
         layer.cornerRadius = 12
         layer.borderWidth = 1
@@ -82,11 +106,13 @@ final class WhiteboardBackgroundSettingsView: UIView {
 
         addSubview(colorStack)
 
+        colorStackTopConstraint = colorStack.topAnchor.constraint(equalTo: topAnchor, constant: Self.containerPadding)
+        colorStackBottomConstraint = colorStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Self.containerPadding)
         NSLayoutConstraint.activate([
             colorStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.containerPadding + Self.stackPadding),
             colorStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -(Self.containerPadding + Self.stackPadding)),
-            colorStack.topAnchor.constraint(equalTo: topAnchor, constant: Self.containerPadding),
-            colorStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Self.containerPadding)
+            colorStackTopConstraint!,
+            colorStackBottomConstraint!
         ])
 
         buildButtons()

@@ -12,6 +12,8 @@ final class WhiteboardPenSettingsView: UIView {
     private static let containerPadding: CGFloat = 0
     private static let stackPadding: CGFloat = 7
     private static let sectionSpacing: CGFloat = 12
+    private static let horizontalPreferredHeight: CGFloat = 56
+    private static let verticalPreferredWidth: CGFloat = 56
 
     var onColorSelected: ((UIColor) -> Void)?
     var onWidthSelected: ((Float) -> Void)?
@@ -25,20 +27,30 @@ final class WhiteboardPenSettingsView: UIView {
     ]
 
     private let rowContainer = UIView()
+    private let mainStack = UIStackView()
     private let colorStack = UIStackView()
     private let widthStack = UIStackView()
     private let separatorView = UIView()
+    private var separatorWidthConstraint: NSLayoutConstraint?
+    private var separatorHeightConstraint: NSLayoutConstraint?
+    private var layoutAxis: NSLayoutConstraint.Axis = .horizontal
 
     private var colorButtons: [UIButton] = []
     private var widthButtons: [UIButton] = []
     private var theme: ScribbleForgeUISkin
 
-    var preferredWidth: CGFloat {
-        let widthContent = CGFloat(widthOptions.count) * Self.itemSize
-            + CGFloat(max(widthOptions.count - 1, 0)) * Self.itemSpacing
-        let colorContent = CGFloat(colorOptions.count) * Self.itemSize
-            + CGFloat(max(colorOptions.count - 1, 0)) * Self.itemSpacing
-        return widthContent + colorContent + Self.sectionSpacing * 2 + 1 + 2 * (Self.containerPadding + Self.stackPadding)
+    var preferredSize: CGSize {
+        let widthLength = contentLength(for: widthOptions.count)
+        let colorLength = contentLength(for: colorOptions.count)
+        let insets = 2 * (Self.containerPadding + Self.stackPadding)
+        if layoutAxis == .vertical {
+            let width = max(Self.itemSize + insets, Self.verticalPreferredWidth)
+            let height = widthLength + colorLength + Self.sectionSpacing * 2 + 1 + insets
+            return CGSize(width: width, height: height)
+        }
+        let width = widthLength + colorLength + Self.sectionSpacing * 2 + 1 + insets
+        let height = Self.horizontalPreferredHeight
+        return CGSize(width: width, height: height)
     }
 
     init(theme: ScribbleForgeUISkin = .default) {
@@ -73,6 +85,23 @@ final class WhiteboardPenSettingsView: UIView {
         }
     }
 
+    func setLayoutAxis(_ axis: NSLayoutConstraint.Axis) {
+        guard layoutAxis != axis else { return }
+        layoutAxis = axis
+        mainStack.axis = axis
+        widthStack.axis = axis
+        colorStack.axis = axis
+        if axis == .vertical {
+            separatorWidthConstraint?.constant = 24
+            separatorHeightConstraint?.constant = 1
+        } else {
+            separatorWidthConstraint?.constant = 1
+            separatorHeightConstraint?.constant = 24
+        }
+        invalidateIntrinsicContentSize()
+        setNeedsLayout()
+    }
+
     private func setupView() {
         layer.cornerRadius = 12
         layer.borderWidth = 1
@@ -82,6 +111,12 @@ final class WhiteboardPenSettingsView: UIView {
 
         rowContainer.translatesAutoresizingMaskIntoConstraints = false
         rowContainer.layer.cornerRadius = 12
+
+        mainStack.axis = .horizontal
+        mainStack.alignment = .center
+        mainStack.distribution = .fill
+        mainStack.spacing = Self.sectionSpacing
+        mainStack.translatesAutoresizingMaskIntoConstraints = false
 
         colorStack.axis = .horizontal
         colorStack.alignment = .center
@@ -103,28 +138,25 @@ final class WhiteboardPenSettingsView: UIView {
         applyDynamicColors()
 
         addSubview(rowContainer)
-        rowContainer.addSubview(widthStack)
-        rowContainer.addSubview(separatorView)
-        rowContainer.addSubview(colorStack)
+        rowContainer.addSubview(mainStack)
+        mainStack.addArrangedSubview(widthStack)
+        mainStack.addArrangedSubview(separatorView)
+        mainStack.addArrangedSubview(colorStack)
+
+        separatorWidthConstraint = separatorView.widthAnchor.constraint(equalToConstant: 1)
+        separatorHeightConstraint = separatorView.heightAnchor.constraint(equalToConstant: 24)
 
         NSLayoutConstraint.activate([
             rowContainer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.containerPadding),
             rowContainer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.containerPadding),
             rowContainer.topAnchor.constraint(equalTo: topAnchor, constant: Self.containerPadding),
             rowContainer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Self.containerPadding),
-            rowContainer.heightAnchor.constraint(equalToConstant: 50),
-
-            widthStack.leadingAnchor.constraint(equalTo: rowContainer.leadingAnchor, constant: Self.stackPadding),
-            widthStack.centerYAnchor.constraint(equalTo: rowContainer.centerYAnchor),
-
-            separatorView.leadingAnchor.constraint(equalTo: widthStack.trailingAnchor, constant: Self.sectionSpacing),
-            separatorView.trailingAnchor.constraint(equalTo: colorStack.leadingAnchor, constant: -Self.sectionSpacing),
-            separatorView.centerYAnchor.constraint(equalTo: rowContainer.centerYAnchor),
-            separatorView.widthAnchor.constraint(equalToConstant: 1),
-            separatorView.heightAnchor.constraint(equalToConstant: 24),
-
-            colorStack.trailingAnchor.constraint(equalTo: rowContainer.trailingAnchor, constant: -Self.stackPadding),
-            colorStack.centerYAnchor.constraint(equalTo: rowContainer.centerYAnchor)
+            mainStack.leadingAnchor.constraint(equalTo: rowContainer.leadingAnchor, constant: Self.stackPadding),
+            mainStack.trailingAnchor.constraint(equalTo: rowContainer.trailingAnchor, constant: -Self.stackPadding),
+            mainStack.topAnchor.constraint(equalTo: rowContainer.topAnchor, constant: Self.stackPadding),
+            mainStack.bottomAnchor.constraint(equalTo: rowContainer.bottomAnchor, constant: -Self.stackPadding),
+            separatorWidthConstraint!,
+            separatorHeightConstraint!
         ])
 
         buildButtons()
@@ -245,5 +277,9 @@ final class WhiteboardPenSettingsView: UIView {
     private func frameImage(selected: Bool) -> UIImage? {
         let name = selected ? "fcr_colorshow" : "fcr_colorshow2"
         return ScribbleForgeUIResources.image(named: name)?.withRenderingMode(.alwaysTemplate)
+    }
+
+    private func contentLength(for count: Int) -> CGFloat {
+        return CGFloat(count) * Self.itemSize + CGFloat(max(count - 1, 0)) * Self.itemSpacing
     }
 }
