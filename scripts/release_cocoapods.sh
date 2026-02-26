@@ -20,9 +20,9 @@ Options:
 
 This script will:
 1) bump version in ScribbleForgeUI.podspec
-2) run pod spec lint (unless --skip-lint)
-3) git add/commit/tag
-4) git push branch and tag
+2) git add/commit/tag
+3) git push branch and tag
+4) run pod spec lint (unless --skip-lint)
 5) pod trunk push
 EOF
 }
@@ -139,13 +139,6 @@ log "Branch: ${BRANCH_NAME}"
 
 update_podspec_version "${VERSION}"
 
-if [[ "${SKIP_LINT}" == "false" ]]; then
-  log "Running pod spec lint..."
-  run_cmd pod spec lint "${PODSPEC_PATH}" --allow-warnings
-else
-  log "Skipping pod spec lint."
-fi
-
 log "Committing version bump..."
 run_cmd git -C "${ROOT_DIR}" add "${PODSPEC_PATH}"
 run_cmd git -C "${ROOT_DIR}" commit -m "Release ${VERSION}"
@@ -158,6 +151,13 @@ run_cmd git -C "${ROOT_DIR}" push origin "${BRANCH_NAME}"
 
 log "Pushing tag ${VERSION}..."
 run_cmd git -C "${ROOT_DIR}" push origin "${VERSION}"
+
+if [[ "${SKIP_LINT}" == "false" ]]; then
+  log "Running pod spec lint..."
+  run_cmd pod spec lint "${PODSPEC_PATH}" --allow-warnings
+else
+  log "Skipping pod spec lint."
+fi
 
 log "Publishing to CocoaPods trunk..."
 run_cmd pod trunk push "${PODSPEC_PATH}" --allow-warnings
