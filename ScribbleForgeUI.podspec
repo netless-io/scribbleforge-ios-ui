@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name = 'ScribbleForgeUI'
-  s.version = '0.1.0'
+  s.version = '0.1.1'
   s.summary = 'UIKit UI components for ScribbleForge whiteboard.'
   s.description = <<-DESC
 ScribbleForgeUI provides UIKit-based UI components for embedding the ScribbleForge
