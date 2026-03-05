@@ -1,0 +1,24 @@
+{
+  "originHash" : "b1ae7f7e7ae521c85ec52e8b6a6f3ea24f069512a0c662efb41db7f7cf1930fd",
+  "pins" : [
+    {
+      "identity" : "agorartm_apple",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AgoraIO/AgoraRtm_Apple.git",
+      "state" : {
+        "revision" : "078399d7698105bc0f9accd41a990b91ecdb4d60",
+        "version" : "2.2.4"
+      }
+    },
+    {
+      "identity" : "scribbleforge-ios-release",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/netless-io/scribbleforge-ios-release.git",
+      "state" : {
+        "revision" : "63755233f6db13753c91c1cfa063601240891311",
+        "version" : "1.1.1"
+      }
+    }
+  ],
+  "version" : 3
+}

@@ -4,6 +4,16 @@
 
 ## 安装
 
+### Swift Package Manager
+
+支持通过 Swift Package Manager 集成，仓库地址：
+
+```text
+https://github.com/netless-io/scribbleforge-ios-ui.git
+```
+
+`ScribbleForgeUI` 会通过 SPM 自动拉取 `ScribbleForge`（`netless-io/scribbleforge-ios-release`）。
+
 ### CocoaPods
 
 添加 ScribbleForgeUI 即可：
@@ -44,9 +54,29 @@ final class ViewController: UIViewController {
 }
 ```
 
-## Demo 配置
+## Demo
 
-运行 Demo 前，请先在 `Demo/ScribbleForgeSampleUI` 下创建并修改 `RoomConfig.plist`（并确保加入 `ScribbleForgeSampleUI` target）：
+仓库内提供两套 Demo：
+
+- CocoaPods Demo：`Demo/ScribbleForgeSampleUI.xcworkspace`
+- SwiftPM Demo：`DemoSPM/ScribbleForgeSampleUI-SPM.xcodeproj`
+
+运行方式：
+
+```bash
+# CocoaPods Demo
+cd Demo && pod install
+open Demo/ScribbleForgeSampleUI.xcworkspace
+
+# SwiftPM Demo
+open DemoSPM/ScribbleForgeSampleUI-SPM.xcodeproj
+```
+
+两套 Demo 共用 `Demo/ScribbleForgeSampleUI` 源码目录，并共用同一份 `RoomConfig.plist`（确保加入 `ScribbleForgeSampleUI` target）：
+
+- `Demo/ScribbleForgeSampleUI/RoomConfig.plist`
+
+模板如下：
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>

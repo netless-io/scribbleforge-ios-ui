@@ -1,9 +1,29 @@
 # Develop
 
+## 本地验证
+
+### Swift Package Manager
+
+```bash
+swift package dump-package
+swift package resolve
+```
+
+### Demo 运行
+
+```bash
+# CocoaPods Demo
+cd Demo && pod install
+open Demo/ScribbleForgeSampleUI.xcworkspace
+
+# SwiftPM Demo
+open DemoSPM/ScribbleForgeSampleUI-SPM.xcodeproj
+```
+
 ## 发布到 CocoaPods
 
 ```bash
-./scripts/release_cocoapods.sh 0.1.1
+./scripts/release_cocoapods.sh <version>
 ```
 
 可选参数：
