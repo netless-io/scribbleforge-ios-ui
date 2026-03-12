@@ -54,7 +54,6 @@ public final class WhiteboardToolbarView: UIView {
         .action(.colorSettings),
         .tool(.text),
         .tool(.eraser),
-        .action(.save),
         .action(.backgroundColor)
     ]
     private var theme: ScribbleForgeUISkin = .default
@@ -81,6 +80,7 @@ public final class WhiteboardToolbarView: UIView {
     private var trailingSeparatorHeightConstraint: NSLayoutConstraint?
     private static let horizontalContentInset: CGFloat = 14
     private static let itemSpacing: CGFloat = 20
+    private static let scrollEndInset: CGFloat = 20
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -111,6 +111,7 @@ public final class WhiteboardToolbarView: UIView {
         containerStack.axis = axis
         rightControlsStack.axis = axis
         itemStack.axis = axis
+        updateScrollEndInset(for: axis)
         itemScrollView.alwaysBounceHorizontal = axis == .horizontal
         itemScrollView.alwaysBounceVertical = axis == .vertical
         itemScrollView.showsHorizontalScrollIndicator = false
@@ -244,7 +245,7 @@ public final class WhiteboardToolbarView: UIView {
         layer.masksToBounds = true
 
         containerStack.axis = .horizontal
-        containerStack.spacing = Self.itemSpacing
+        containerStack.spacing = 0
         containerStack.alignment = .center
         containerStack.distribution = .fill
         containerStack.translatesAutoresizingMaskIntoConstraints = false
@@ -259,6 +260,7 @@ public final class WhiteboardToolbarView: UIView {
         itemScrollView.showsHorizontalScrollIndicator = false
         itemScrollView.showsVerticalScrollIndicator = false
         itemScrollView.alwaysBounceHorizontal = true
+        updateScrollEndInset(for: .horizontal)
         itemScrollView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         itemScrollView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         itemScrollSizeConstraint = itemScrollView.heightAnchor.constraint(equalToConstant: 42)
@@ -773,6 +775,16 @@ public final class WhiteboardToolbarView: UIView {
         } else {
             layer.cornerRadius = 16
             layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        }
+    }
+
+    private func updateScrollEndInset(for axis: NSLayoutConstraint.Axis) {
+        if axis == .horizontal {
+            itemScrollView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: Self.scrollEndInset)
+            itemScrollView.scrollIndicatorInsets = itemScrollView.contentInset
+        } else {
+            itemScrollView.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: Self.scrollEndInset, right: 0)
+            itemScrollView.scrollIndicatorInsets = itemScrollView.contentInset
         }
     }
 }
