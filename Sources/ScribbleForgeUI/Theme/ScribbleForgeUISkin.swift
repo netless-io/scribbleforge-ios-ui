@@ -201,8 +201,8 @@ public struct ScribbleForgeUISkin {
             dark: UIColor.white
         ),
         toolbarDisabledTintColor: dynamic(
-            light: UIColor(white: 1.0, alpha: 0.35),
-            dark: UIColor(white: 0.7, alpha: 0.4)
+            light: .init(hex: "#BBBBBB"),
+            dark: .init(hex: "#BBBBBB").withAlphaComponent(0.7)
         ),
         pageTextColor: dynamic(
             light: UIColor.white,
@@ -244,7 +244,7 @@ public struct ScribbleForgeUISkin {
         actionIconProvider: { action in
             switch action {
             case .undo:
-                return ScribbleForgeUIResources.image(named: "fcr_mobile_whiteboard_revoke")?.withRenderingMode(.alwaysTemplate)
+                return ScribbleForgeUIResources.image(named: "fcr_mobile_whiteboard_undo")?.withRenderingMode(.alwaysTemplate)
             case .redo:
                 return ScribbleForgeUIResources.image(named: "fcr_mobile_whiteboard_redo")?.withRenderingMode(.alwaysTemplate)
             case .colorSettings:

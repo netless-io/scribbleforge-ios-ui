@@ -6,6 +6,7 @@ public final class WhiteboardContainerViewController: UIViewController {
     private let stateStore: WhiteboardStateStore
     private let toolbarView = WhiteboardToolbarView()
     private let toolbarBackgroundView = UIView()
+    private let floatingExpandButton = UIButton(type: .system)
     private let stageContainer = UIView()
     private let loadingIndicator = UIActivityIndicatorView(style: .large)
     private var whiteboardConstraints: [NSLayoutConstraint] = []
@@ -61,6 +62,9 @@ public final class WhiteboardContainerViewController: UIViewController {
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         updateToolbarLayoutIfNeeded()
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            applyFloatingExpandButtonStyle()
+        }
     }
 
     public func start(with room: Room, autoJoin: Bool = true) {
@@ -160,10 +164,51 @@ public final class WhiteboardContainerViewController: UIViewController {
             }
             self.applyToolbarConstraints()
             self.updateVisibleSettingsConstraints()
+            self.updateToolbarVisibility()
         }
 
         view.addSubview(toolbarView)
+        setupFloatingExpandButton()
         updateToolbarLayoutIfNeeded(force: true)
+    }
+
+    private func setupFloatingExpandButton() {
+        floatingExpandButton.translatesAutoresizingMaskIntoConstraints = false
+        floatingExpandButton.isHidden = true
+        let image = ScribbleForgeUIResources.image(named: "fcr_mobile_whiteboardedit")
+        floatingExpandButton.setImage(image?.withRenderingMode(.alwaysTemplate), for: .normal)
+        floatingExpandButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+        floatingExpandButton.accessibilityLabel = "expand_toolbar"
+        floatingExpandButton.addTarget(self, action: #selector(floatingExpandTapped), for: .touchUpInside)
+        view.addSubview(floatingExpandButton)
+        NSLayoutConstraint.activate([
+            floatingExpandButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            floatingExpandButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -16),
+            floatingExpandButton.widthAnchor.constraint(equalToConstant: 52),
+            floatingExpandButton.heightAnchor.constraint(equalToConstant: 52)
+        ])
+        applyFloatingExpandButtonStyle()
+    }
+
+    private func applyFloatingExpandButtonStyle() {
+        floatingExpandButton.backgroundColor = config.theme.colors.toolbarItemBackground
+        floatingExpandButton.tintColor = config.theme.toolbarTintColor
+        floatingExpandButton.layer.cornerRadius = 26
+        floatingExpandButton.layer.cornerCurve = .continuous
+        floatingExpandButton.layer.borderWidth = 1
+        floatingExpandButton.layer.borderColor = floatingExpandButtonBorderColor().cgColor
+        floatingExpandButton.layer.shadowColor = UIColor.black.cgColor
+        floatingExpandButton.layer.shadowOpacity = traitCollection.userInterfaceStyle == .dark ? 0.22 : 0.12
+        floatingExpandButton.layer.shadowRadius = 6
+        floatingExpandButton.layer.shadowOffset = CGSize(width: 0, height: 2)
+        floatingExpandButton.layer.masksToBounds = false
+    }
+
+    private func floatingExpandButtonBorderColor() -> UIColor {
+        if traitCollection.userInterfaceStyle == .dark {
+            return UIColor(sfHex: "#4A4C5F")!.withAlphaComponent(0.5)
+        }
+        return UIColor(sfHex: "#E3E7EF")!
     }
 
     private func bindState() {
@@ -386,9 +431,14 @@ public final class WhiteboardContainerViewController: UIViewController {
     }
 
     private func updateToolbarVisibility() {
-        let shouldShow = config.showToolbar && isWhiteboardReady && stateStore.state.canDraw
-        toolbarView.isHidden = !shouldShow
-        toolbarBackgroundView.isHidden = !shouldShow
+        let canShowToolbar = config.showToolbar && isWhiteboardReady && stateStore.state.canDraw
+        let shouldShowCollapsedButton = canShowToolbar && toolbarView.isCollapsedState
+        toolbarView.isHidden = !canShowToolbar || shouldShowCollapsedButton
+        toolbarBackgroundView.isHidden = !canShowToolbar || shouldShowCollapsedButton
+        floatingExpandButton.isHidden = !shouldShowCollapsedButton
+        if shouldShowCollapsedButton {
+            view.bringSubviewToFront(floatingExpandButton)
+        }
     }
 
     private func shouldUseVerticalToolbarLayout() -> Bool {
@@ -418,7 +468,7 @@ public final class WhiteboardContainerViewController: UIViewController {
         if isVerticalToolbarLayout {
             if toolbarView.isCollapsedState {
                 toolbarConstraints = [
-                    toolbarView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+                    toolbarView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
                     toolbarView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
                     toolbarView.heightAnchor.constraint(equalToConstant: 70),
                     toolbarView.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor),
@@ -426,7 +476,7 @@ public final class WhiteboardContainerViewController: UIViewController {
                 ]
             } else {
                 toolbarConstraints = [
-                    toolbarView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+                    toolbarView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
                     toolbarView.topAnchor.constraint(equalTo: view.topAnchor),
                     toolbarView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
                     toolbarView.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor)
@@ -440,11 +490,11 @@ public final class WhiteboardContainerViewController: UIViewController {
             ]
         } else {
             toolbarConstraints = [
-                toolbarView.centerXAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerXAnchor),
-                toolbarView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-                toolbarView.widthAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.widthAnchor),
-                toolbarView.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor),
-                toolbarView.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor)
+                toolbarView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                toolbarView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                toolbarView.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor),
+                toolbarView.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor),
+                toolbarView.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor)
             ]
             toolbarBackgroundConstraints = [
                 toolbarBackgroundView.leadingAnchor.constraint(equalTo: toolbarView.leadingAnchor),
@@ -517,6 +567,10 @@ public final class WhiteboardContainerViewController: UIViewController {
                 hideAllSettings()
             }
         }
+    }
+
+    @objc private func floatingExpandTapped() {
+        toolbarView.setCollapsedState(false)
     }
 
     private func saveSnapshot() {

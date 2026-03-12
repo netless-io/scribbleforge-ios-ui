@@ -20,8 +20,11 @@ public final class WhiteboardToolbarView: UIView {
     }
 
     private let containerStack = UIStackView()
+    private let rightControlsStack = UIStackView()
     private let itemScrollView = UIScrollView()
     private let itemStack = UIStackView()
+    private let leadingSeparatorView = UIView()
+    private let trailingSeparatorView = UIView()
     private var toolButtons: [WhiteboardToolType: UIButton] = [:]
     private var actionButtons: [WhiteboardToolbarAction: UIButton] = [:]
     private var toolbarItems: [ToolbarItem] = []
@@ -59,8 +62,9 @@ public final class WhiteboardToolbarView: UIView {
     private var lastState: WhiteboardUIState?
     private var lastShapeTool: WhiteboardToolType?
 
+    private let undoButton = UIButton(type: .system)
+    private let redoButton = UIButton(type: .system)
     private let closeButton = UIButton(type: .system)
-    private let expandButton = UIButton(type: .system)
     private var isCollapsed = false
     private var isFullWidthStyle: Bool?
     private var layoutAxis: NSLayoutConstraint.Axis = .horizontal
@@ -71,7 +75,12 @@ public final class WhiteboardToolbarView: UIView {
     private var containerTrailingConstraint: NSLayoutConstraint?
     private var containerTopConstraint: NSLayoutConstraint?
     private var containerBottomConstraint: NSLayoutConstraint?
+    private var leadingSeparatorWidthConstraint: NSLayoutConstraint?
+    private var leadingSeparatorHeightConstraint: NSLayoutConstraint?
+    private var trailingSeparatorWidthConstraint: NSLayoutConstraint?
+    private var trailingSeparatorHeightConstraint: NSLayoutConstraint?
     private static let horizontalContentInset: CGFloat = 14
+    private static let itemSpacing: CGFloat = 20
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -92,10 +101,15 @@ public final class WhiteboardToolbarView: UIView {
         applyTheme()
     }
 
+    public func setCollapsedState(_ collapsed: Bool) {
+        setCollapsed(collapsed)
+    }
+
     public func setLayoutAxis(_ axis: NSLayoutConstraint.Axis) {
         guard layoutAxis != axis else { return }
         layoutAxis = axis
         containerStack.axis = axis
+        rightControlsStack.axis = axis
         itemStack.axis = axis
         itemScrollView.alwaysBounceHorizontal = axis == .horizontal
         itemScrollView.alwaysBounceVertical = axis == .vertical
@@ -114,12 +128,32 @@ public final class WhiteboardToolbarView: UIView {
             itemScrollSizeConstraint = itemScrollView.heightAnchor.constraint(equalToConstant: 42)
             containerTopConstraint?.constant = 4
             containerBottomConstraint?.constant = -4
+            leadingSeparatorWidthConstraint?.isActive = false
+            leadingSeparatorHeightConstraint?.isActive = false
+            trailingSeparatorWidthConstraint?.isActive = false
+            trailingSeparatorHeightConstraint?.isActive = false
+            leadingSeparatorWidthConstraint = leadingSeparatorView.widthAnchor.constraint(equalToConstant: 1)
+            leadingSeparatorHeightConstraint = leadingSeparatorView.heightAnchor.constraint(equalToConstant: 26)
+            trailingSeparatorWidthConstraint = trailingSeparatorView.widthAnchor.constraint(equalToConstant: 1)
+            trailingSeparatorHeightConstraint = trailingSeparatorView.heightAnchor.constraint(equalToConstant: 26)
         } else {
             itemScrollSizeConstraint = itemScrollView.widthAnchor.constraint(equalToConstant: 42)
             containerTopConstraint?.constant = Self.horizontalContentInset
             containerBottomConstraint?.constant = -Self.horizontalContentInset
+            leadingSeparatorWidthConstraint?.isActive = false
+            leadingSeparatorHeightConstraint?.isActive = false
+            trailingSeparatorWidthConstraint?.isActive = false
+            trailingSeparatorHeightConstraint?.isActive = false
+            leadingSeparatorWidthConstraint = leadingSeparatorView.widthAnchor.constraint(equalToConstant: 26)
+            leadingSeparatorHeightConstraint = leadingSeparatorView.heightAnchor.constraint(equalToConstant: 1)
+            trailingSeparatorWidthConstraint = trailingSeparatorView.widthAnchor.constraint(equalToConstant: 26)
+            trailingSeparatorHeightConstraint = trailingSeparatorView.heightAnchor.constraint(equalToConstant: 1)
         }
         itemScrollSizeConstraint?.isActive = true
+        leadingSeparatorWidthConstraint?.isActive = true
+        leadingSeparatorHeightConstraint?.isActive = true
+        trailingSeparatorWidthConstraint?.isActive = true
+        trailingSeparatorHeightConstraint?.isActive = true
 
         toolbarThicknessConstraint?.isActive = false
         if axis == .horizontal {
@@ -186,6 +220,20 @@ public final class WhiteboardToolbarView: UIView {
                 button.layer.borderColor = theme.colors.toolbarSelectionBorder.resolvedColor(with: traitCollection).cgColor
             }
         }
+        let undoEnabled = state.canDraw && state.undoCount > 0
+        undoButton.isEnabled = undoEnabled
+        undoButton.alpha = undoEnabled ? 1.0 : 0.4
+        undoButton.tintColor = undoEnabled ? normalTint : disabledTint
+        undoButton.backgroundColor = theme.colors.toolbarItemBackground
+        undoButton.layer.borderWidth = 0
+
+        let redoEnabled = state.canDraw && state.redoCount > 0
+        redoButton.isEnabled = redoEnabled
+        redoButton.alpha = redoEnabled ? 1.0 : 0.4
+        redoButton.tintColor = redoEnabled ? normalTint : disabledTint
+        redoButton.backgroundColor = theme.colors.toolbarItemBackground
+        redoButton.layer.borderWidth = 0
+
         closeButton.tintColor = normalTint
         updateShapePickerSelection(for: state.currentTool, enabled: state.canDraw)
         updateColorSettingsIcon(color: state.strokeColor ?? normalTint)
@@ -196,10 +244,16 @@ public final class WhiteboardToolbarView: UIView {
         layer.masksToBounds = true
 
         containerStack.axis = .horizontal
-        containerStack.spacing = 0
+        containerStack.spacing = Self.itemSpacing
         containerStack.alignment = .center
         containerStack.distribution = .fill
         containerStack.translatesAutoresizingMaskIntoConstraints = false
+
+        rightControlsStack.axis = .horizontal
+        rightControlsStack.spacing = Self.itemSpacing
+        rightControlsStack.alignment = .center
+        rightControlsStack.distribution = .fill
+        rightControlsStack.translatesAutoresizingMaskIntoConstraints = false
 
         itemScrollView.translatesAutoresizingMaskIntoConstraints = false
         itemScrollView.showsHorizontalScrollIndicator = false
@@ -211,14 +265,22 @@ public final class WhiteboardToolbarView: UIView {
         itemScrollSizeConstraint?.isActive = true
 
         itemStack.axis = .horizontal
-        itemStack.spacing = 20
+        itemStack.spacing = Self.itemSpacing
         itemStack.alignment = .center
         itemStack.translatesAutoresizingMaskIntoConstraints = false
 
+        leadingSeparatorView.translatesAutoresizingMaskIntoConstraints = false
+        trailingSeparatorView.translatesAutoresizingMaskIntoConstraints = false
+
         addSubview(containerStack)
         containerStack.addArrangedSubview(itemScrollView)
-        containerStack.addArrangedSubview(closeButton)
-        containerStack.addArrangedSubview(expandButton)
+        containerStack.addArrangedSubview(rightControlsStack)
+
+        rightControlsStack.addArrangedSubview(leadingSeparatorView)
+        rightControlsStack.addArrangedSubview(undoButton)
+        rightControlsStack.addArrangedSubview(redoButton)
+        rightControlsStack.addArrangedSubview(trailingSeparatorView)
+        rightControlsStack.addArrangedSubview(closeButton)
 
         itemScrollView.addSubview(itemStack)
 
@@ -240,15 +302,23 @@ public final class WhiteboardToolbarView: UIView {
         ])
         toolbarThicknessConstraint = heightAnchor.constraint(equalToConstant: 70)
         toolbarThicknessConstraint?.isActive = true
+        leadingSeparatorWidthConstraint = leadingSeparatorView.widthAnchor.constraint(equalToConstant: 1)
+        leadingSeparatorHeightConstraint = leadingSeparatorView.heightAnchor.constraint(equalToConstant: 26)
+        trailingSeparatorWidthConstraint = trailingSeparatorView.widthAnchor.constraint(equalToConstant: 1)
+        trailingSeparatorHeightConstraint = trailingSeparatorView.heightAnchor.constraint(equalToConstant: 26)
+        leadingSeparatorWidthConstraint?.isActive = true
+        leadingSeparatorHeightConstraint?.isActive = true
+        trailingSeparatorWidthConstraint?.isActive = true
+        trailingSeparatorHeightConstraint?.isActive = true
 
         setupActionButtons()
         applyTheme()
     }
 
     private func setupActionButtons() {
-        configureResourceButton(closeButton, imageName: "fcr_close2", templated: true, selector: #selector(closeTapped))
-        configureResourceButton(expandButton, imageName: "fcr_mobile_whiteboardedit", templated: false, selector: #selector(expandTapped))
-        expandButton.isHidden = true
+        configureActionButton(undoButton, action: .undo, selector: #selector(undoTapped))
+        configureActionButton(redoButton, action: .redo, selector: #selector(redoTapped))
+        configureResourceButton(closeButton, imageName: "fcr_fold", templated: true, selector: #selector(closeTapped))
     }
 
     private func rebuildItems() {
@@ -321,9 +391,15 @@ public final class WhiteboardToolbarView: UIView {
             backgroundView = nil
         }
         updateActionIcons()
+        setActionImage(.undo, on: undoButton)
+        setActionImage(.redo, on: redoButton)
         let normalTint = theme.toolbarTintColor
         actionButtons.values.forEach { $0.tintColor = normalTint }
+        undoButton.tintColor = normalTint
+        redoButton.tintColor = normalTint
         closeButton.tintColor = normalTint
+        leadingSeparatorView.backgroundColor = theme.colors.toolbarBorder
+        trailingSeparatorView.backgroundColor = theme.colors.toolbarBorder
         updateShapePickerIcon(for: lastState?.currentTool)
         updateColorSettingsIcon(color: lastState?.strokeColor ?? normalTint)
     }
@@ -480,7 +556,7 @@ public final class WhiteboardToolbarView: UIView {
     private func actionResourceName(for action: WhiteboardToolbarAction) -> String? {
         switch action {
         case .undo:
-            return "fcr_mobile_whiteboard_revoke"
+            return "fcr_mobile_whiteboard_undo"
         case .redo:
             return "fcr_mobile_whiteboard_redo"
         case .colorSettings:
@@ -546,8 +622,11 @@ public final class WhiteboardToolbarView: UIView {
         guard collapsed != isCollapsed else { return }
         isCollapsed = collapsed
         itemScrollView.isHidden = collapsed
+        leadingSeparatorView.isHidden = collapsed
+        undoButton.isHidden = collapsed
+        redoButton.isHidden = collapsed
+        trailingSeparatorView.isHidden = collapsed
         closeButton.isHidden = collapsed
-        expandButton.isHidden = !collapsed
         invalidateIntrinsicContentSize()
         setNeedsLayout()
         onCollapsedStateChanged?(collapsed)
@@ -589,8 +668,12 @@ public final class WhiteboardToolbarView: UIView {
         setCollapsed(true)
     }
 
-    @objc private func expandTapped() {
-        setCollapsed(false)
+    @objc private func undoTapped() {
+        onUndo?()
+    }
+
+    @objc private func redoTapped() {
+        onRedo?()
     }
 
     private func systemImageName(for tool: WhiteboardToolType) -> String {
@@ -680,7 +763,7 @@ public final class WhiteboardToolbarView: UIView {
             isFullWidthStyle = nil
             return
         }
-        let availableWidth = (superview?.safeAreaLayoutGuide.layoutFrame.width ?? bounds.width) - 24
+        let availableWidth = (superview?.bounds.width ?? bounds.width) - 24
         let fullWidth = bounds.width >= availableWidth - 0.5
         guard isFullWidthStyle != fullWidth else { return }
         isFullWidthStyle = fullWidth
